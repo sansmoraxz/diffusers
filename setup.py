@@ -67,34 +67,44 @@ To create the package for pypi.
     you need to go back to main before executing this.
 """
 
+import os
 import re
 from distutils.core import Command
 
 from setuptools import find_packages, setup
 
+
 # IMPORTANT:
 # 1. all dependencies should be listed here with their version requirements if any
 # 2. once modified, run: `make deps_table_update` to update src/diffusers/dependency_versions_table.py
 _deps = [
-    "Pillow",
+    "Pillow",  # keep the PIL.Image.Resampling deprecation away
     "accelerate>=0.11.0",
-    "black==22.3",
+    "black==22.8",
     "datasets",
     "filelock",
     "flake8>=3.8.3",
+    "flax>=0.4.1",
     "hf-doc-builder>=0.3.0",
-    "huggingface-hub>=0.8.1,<1.0",
+    "huggingface-hub>=0.10.0",
     "importlib_metadata",
     "isort>=5.5.4",
-    "modelcards==0.1.4",
+    "jax>=0.2.8,!=0.3.2",
+    "jaxlib>=0.1.65",
+    "modelcards>=0.1.4",
     "numpy",
+    "parameterized",
     "pytest",
     "pytest-timeout",
     "pytest-xdist",
+    "sentencepiece>=0.1.91,!=0.1.92",
+    "scipy",
     "regex!=2019.12.17",
     "requests",
     "tensorboard",
     "torch>=1.4",
+    "torchvision",
+    "transformers>=4.21.0",
 ]
 
 # this is a lookup table with items like:
@@ -165,11 +175,30 @@ extras = {}
 
 
 extras = {}
-extras["quality"] = ["black==22.3", "isort>=5.5.4", "flake8>=3.8.3", "hf-doc-builder"]
-extras["docs"] = ["hf-doc-builder"]
-extras["training"] = ["accelerate", "datasets", "tensorboard", "modelcards"]
-extras["test"] = ["pytest", "pytest-timeout", "pytest-xdist"]
-extras["dev"] = extras["quality"] + extras["test"] + extras["training"] + extras["docs"]
+extras["quality"] = deps_list("black", "isort", "flake8", "hf-doc-builder")
+extras["docs"] = deps_list("hf-doc-builder")
+extras["training"] = deps_list("accelerate", "datasets", "tensorboard", "modelcards")
+extras["test"] = deps_list(
+    "datasets",
+    "parameterized",
+    "pytest",
+    "pytest-timeout",
+    "pytest-xdist",
+    "sentencepiece",
+    "scipy",
+    "torchvision",
+    "transformers"
+)
+extras["torch"] = deps_list("torch", "accelerate")
+
+if os.name == "nt":  # windows
+    extras["flax"] = []  # jax is not supported on windows
+else:
+    extras["flax"] = deps_list("jax", "jaxlib", "flax")
+
+extras["dev"] = (
+    extras["quality"] + extras["test"] + extras["training"] + extras["docs"] + extras["torch"] + extras["flax"]
+)
 
 install_requires = [
     deps["importlib_metadata"],
@@ -178,13 +207,12 @@ install_requires = [
     deps["numpy"],
     deps["regex"],
     deps["requests"],
-    deps["torch"],
     deps["Pillow"],
 ]
 
 setup(
     name="diffusers",
-    version="0.2.4",
+    version="0.9.0",  # expected format is one of x.y.z.dev0, or x.y.z.rc1 or x.y.z (no to dashes, yes to dots)
     description="Diffusers",
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
@@ -196,9 +224,10 @@ setup(
     package_dir={"": "src"},
     packages=find_packages("src"),
     include_package_data=True,
-    python_requires=">=3.6.0",
+    python_requires=">=3.7.0",
     install_requires=install_requires,
     extras_require=extras,
+    entry_points={"console_scripts": ["diffusers-cli=diffusers.commands.diffusers_cli:main"]},
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -207,7 +236,6 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
